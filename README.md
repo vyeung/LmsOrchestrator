@@ -1,7 +1,9 @@
 # InfiniteLoopOrchestrator
 
 //Method1
-
+public void HenrysMethod(){
+    myImplementation;
+}
 
 
 //Method2
