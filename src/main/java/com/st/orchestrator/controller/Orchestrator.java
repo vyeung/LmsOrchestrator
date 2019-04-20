@@ -19,6 +19,7 @@ import com.st.orchestrator.models.BookCopies;
 import com.st.orchestrator.dto.BkAuthPubDTO;
 import com.st.orchestrator.dto.BkCopiesDTO;
 import com.st.orchestrator.dto.BkLoansBkAuthDTO;
+import com.st.orchestrator.dto.BkLoansBranchDTO;
 import com.st.orchestrator.models.Author;
 import com.st.orchestrator.models.BookLoans;
 import com.st.orchestrator.models.Borrower;
@@ -228,7 +229,7 @@ public class Orchestrator {
     
     @SuppressWarnings("unchecked")
     @GetMapping("/borrowers/{cardNo}/libraries")
-    public List<BkLoansBkAuthDTO> getAllBranches(@PathVariable int cardNo){
+    public List<BkLoansBranchDTO> getAllBranches(@PathVariable int cardNo){
         return restTemplate.getForObject("http://borrower-service/borrower/cardNo/"+cardNo+"/libraries", List.class);
     }
     
