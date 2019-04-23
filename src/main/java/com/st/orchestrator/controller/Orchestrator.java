@@ -1,9 +1,10 @@
 package com.st.orchestrator.controller;
 
+import java.util.HashMap;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,14 +14,20 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
-import com.st.orchestrator.models.BookCopies;
+import com.google.gson.Gson;
 import com.st.orchestrator.dto.BkAuthPubDTO;
 import com.st.orchestrator.dto.BkCopiesDTO;
 import com.st.orchestrator.dto.BkLoansBkAuthDTO;
 import com.st.orchestrator.dto.BkLoansBranchDTO;
+import com.st.orchestrator.exception.AlreadyExistsException;
+import com.st.orchestrator.exception.BadRequestException;
+import com.st.orchestrator.exception.NotFoundException;
 import com.st.orchestrator.models.Author;
+import com.st.orchestrator.models.Book;
+import com.st.orchestrator.models.BookCopies;
 import com.st.orchestrator.models.BookLoans;
 import com.st.orchestrator.models.Borrower;
 import com.st.orchestrator.models.LibraryBranch;
@@ -28,6 +35,7 @@ import com.st.orchestrator.models.Publisher;
 
 @RestController
 @RequestMapping("/orch")
+@SuppressWarnings("unchecked")
 public class Orchestrator {
 
 	@Autowired
@@ -38,67 +46,145 @@ public class Orchestrator {
 	*Admin Publishers Orch Methods 
 	*******************************************/
 
-	@SuppressWarnings("unchecked")
 	@GetMapping("/publishers")
-	public List<Publisher> getAllPublishers() {
+	public List<Publisher> getAllPublishers() {	
 		return restTemplate.getForObject("http://admin-service/admin/publishers", List.class);
 	}
 	
 	@GetMapping("/publisher/{id}")
-	public Publisher getPublisher(@PathVariable int id) {
-		return restTemplate.getForObject("http://admin-service/admin/publisher/"+id, Publisher.class);
+	public ResponseEntity<Publisher> getPublisher(@PathVariable int id) throws NotFoundException {
+		Publisher publisher = null;
+		try {
+			publisher = restTemplate.getForObject("http://admin-service/admin/publisher/"+id, Publisher.class);
+			return new ResponseEntity<>(publisher, HttpStatus.OK);
+		}
+		catch(HttpClientErrorException ex) {
+			//convert json string to a usable hashmap and then throw exception based on message field
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+		    throw new NotFoundException(map.get("message"));
+		}
 	}
 	
+	//note: don't need id in request body
 	@PostMapping("/publisher")
-	public ResponseEntity<Publisher> addPublisher(@RequestBody Publisher pub) {
-		return restTemplate.postForEntity("http://admin-service/admin/publisher", pub, Publisher.class);
+	public ResponseEntity<Publisher> addPublisher(@RequestBody Publisher pub) throws AlreadyExistsException  {
+		try {
+			return restTemplate.postForEntity("http://admin-service/admin/publisher", pub, Publisher.class);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+		    throw new AlreadyExistsException(map.get("message"));
+		}
 	}
 	
+	//note: don't need id in request body
 	@PutMapping("/publisher/{id}")
-	public void updatePublisher(@PathVariable int id, @RequestBody Publisher pub) {
-		restTemplate.put("http://admin-service/admin/publisher/"+id, pub);
+	public ResponseEntity<Publisher> updatePublisher(@PathVariable int id, @RequestBody Publisher pub) throws NotFoundException {
+		try {
+			restTemplate.put("http://admin-service/admin/publisher/"+id, pub);
+			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+			throw new NotFoundException(map.get("message"));
+		}
 	}
 	
 	@DeleteMapping("/publisher/{id}")
-	public void deletePublisher(@PathVariable int id) {
-		restTemplate.delete("http://admin-service/admin/publisher/"+id);
+	public ResponseEntity<Publisher> deletePublisher(@PathVariable int id) throws NotFoundException {
+		try {
+			restTemplate.delete("http://admin-service/admin/publisher/"+id);
+			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+			throw new NotFoundException(map.get("message"));
+		}
 	}
 	
 	/******************************************
 	*Admin Books Orch Methods
 	*******************************************/
 	
-	@SuppressWarnings("unchecked")
 	@GetMapping("/books")
 	public List<BkAuthPubDTO> getAllBooks() {
 		return restTemplate.getForObject("http://admin-service/admin/books", List.class);
 	}
 	
 	@GetMapping("/book/{id}")
-	public BkAuthPubDTO getBook(@PathVariable int id) {
-		return restTemplate.getForObject("http://admin-service/admin/book/"+id, BkAuthPubDTO.class);
+	public ResponseEntity<BkAuthPubDTO> getBook(@PathVariable int id) throws NotFoundException {
+		BkAuthPubDTO obj = null;
+		try {
+			obj = restTemplate.getForObject("http://admin-service/admin/book/"+id, BkAuthPubDTO.class);
+			return new ResponseEntity<>(obj, HttpStatus.OK);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+		    throw new NotFoundException(map.get("message"));
+		}		
 	}
 	
 	@PostMapping("/book")
-	public ResponseEntity<BkAuthPubDTO> addBook(@RequestBody BkAuthPubDTO bookBody) {
-		return restTemplate.postForEntity("http://admin-service/admin/book", bookBody, BkAuthPubDTO.class);
+	public ResponseEntity<BkAuthPubDTO> addBook(@RequestBody BkAuthPubDTO bookBody) 
+	throws AlreadyExistsException, BadRequestException {
+		try {
+			return restTemplate.postForEntity("http://admin-service/admin/book", bookBody, BkAuthPubDTO.class);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+		    
+			if(map.get("message").contains("by")) {
+				throw new AlreadyExistsException(map.get("message"));
+			}
+			else if(map.get("message").contains("Add author")) {
+				throw new BadRequestException(map.get("message"));
+			}
+			//case: Add publisher ____ to the database first
+			else {
+				throw new BadRequestException(map.get("message"));
+			}
+		}		
 	}
 	
 	@PutMapping("/book/{id}")
-	public void updateBook(@PathVariable int id, @RequestBody BkAuthPubDTO bookBody) {
-		restTemplate.put("http://admin-service/admin/book/"+id, bookBody);
+	public ResponseEntity<BkAuthPubDTO> updateBook(@PathVariable int id, @RequestBody BkAuthPubDTO bookBody) 
+	throws NotFoundException, BadRequestException {
+		try {
+			restTemplate.put("http://admin-service/admin/book/"+id, bookBody);
+			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+			
+			if(map.get("message").contains("Update failed.")) {
+				throw new NotFoundException(map.get("message"));
+			}
+			else if(map.get("message").contains("Add author")) {
+				throw new BadRequestException(map.get("message"));
+			}
+			//case: Add publisher ____ to the database first
+			else {
+				throw new BadRequestException(map.get("message"));
+			}
+		}
 	}
 	
 	@DeleteMapping("/book/{id}")
-	public void deleteBook(@PathVariable int id) {
-		restTemplate.delete("http://admin-service/admin/book/"+id);
+	public ResponseEntity<Book> deleteBook(@PathVariable int id) throws NotFoundException {
+		try {
+			restTemplate.delete("http://admin-service/admin/book/"+id);
+			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+			throw new NotFoundException(map.get("message"));
+		}
 	}
 	
 	/******************************************
 	*Admin Book Loans Orch Methods
 	*******************************************/
 	
-	@SuppressWarnings("unchecked")
 	@GetMapping("/bookLoans")
 	public List<BookLoans> getAllBookLoans() {
 		return restTemplate.getForObject("http://admin-service/admin/bookLoans", List.class);
@@ -106,9 +192,20 @@ public class Orchestrator {
 	
 	//note: when testing, every field in BookLoans must have some value (not null)
 	@PutMapping("/bookLoans/bookId/{bookId}/branchId/{branchId}/cardNo/{cardNo}")
-	public void updateBookLoanDueDate(@PathVariable int bookId, @PathVariable int branchId, @PathVariable int cardNo, @RequestBody BookLoans newDueDate) {
-		System.out.println(newDueDate.getDueDate());
-		restTemplate.put("http://admin-service/admin/bookLoans/bookId/"+bookId+"/branchId/"+branchId+"/cardNo/"+cardNo, newDueDate);
+	public ResponseEntity<BookLoans> updateBookLoanDueDate(
+			@PathVariable int bookId, 
+			@PathVariable int branchId, 
+			@PathVariable int cardNo, 
+			@RequestBody BookLoans newDueDate) throws NotFoundException {
+		
+		try {
+			restTemplate.put("http://admin-service/admin/bookLoans/bookId/"+bookId+"/branchId/"+branchId+"/cardNo/"+cardNo, newDueDate);
+			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+			throw new NotFoundException(map.get("message"));
+		}
 	}
 	
 	/******************************************
@@ -117,33 +214,59 @@ public class Orchestrator {
 	
 	String authorUrl = "http://admin-service/admin/author/";
 	
-	@SuppressWarnings("unchecked")
 	@GetMapping("/authors")
     public List<Author> getAllAuthors() {
     	return restTemplate.getForObject("http://admin-service/admin/authors/", List.class);
     }
     
     @GetMapping("/author/{authorId}")
-    public Author getAuthor(@PathVariable("authorId") int authorId){
-    	return restTemplate.getForEntity(authorUrl+authorId, Author.class).getBody();
+    public ResponseEntity<Author> getAuthor(@PathVariable int authorId) throws NotFoundException {
+    	Author author = null;
+		try {
+			author = restTemplate.getForEntity(authorUrl+authorId, Author.class).getBody();
+			return new ResponseEntity<>(author, HttpStatus.OK);
+		}
+		catch(HttpClientErrorException ex) {
+			if (!ex.getStatusCode().equals(HttpStatus.NOT_FOUND)) {throw ex;}
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+		    throw new NotFoundException(map.get("message"));
+		}
     }
     
     @PostMapping("/author")
-    public Author postAuthor(@RequestBody Author author) {
-    	HttpEntity<Author> request = new HttpEntity<>(author);
-    	Author out = restTemplate.postForObject(authorUrl, request, Author.class);
-    	return out;
+    public ResponseEntity<Author> addAuthor(@RequestBody Author author) throws AlreadyExistsException {
+    	try {
+			restTemplate.postForEntity(authorUrl, author, Author.class);
+			return new ResponseEntity<>(HttpStatus.CREATED);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+		    throw new AlreadyExistsException(map.get("message"));
+		}
     }
     
     @PutMapping("/author/{authorId}")
-    public void putAuthor(@PathVariable("authorId") int authorId, @RequestBody Author author) {
-    	HttpEntity<Author> request = new HttpEntity<Author>(author);
-    	restTemplate.put(authorUrl+authorId, request);
+    public ResponseEntity<Author> updateAuthor(@PathVariable int authorId, @RequestBody Author author) throws NotFoundException {
+    	try {
+			restTemplate.put(authorUrl+authorId, author);
+			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+			throw new NotFoundException(map.get("message"));
+		}	
     }
     
     @DeleteMapping("/author/{authorId}")
-    public void deleteAuthor(@PathVariable("authorId") int authorId) {
-    	restTemplate.delete(authorUrl+authorId);
+    public ResponseEntity<Author> deleteAuthor(@PathVariable int authorId) throws NotFoundException {
+    	try {
+			restTemplate.delete(authorUrl+authorId);
+			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+			throw new NotFoundException(map.get("message"));
+		}
     }
     
     /******************************************
@@ -152,33 +275,59 @@ public class Orchestrator {
     
     String borrowerUrl = "http://admin-service/admin/borrower/";
     
-    @SuppressWarnings("unchecked")
 	@GetMapping("/borrowers")
     public List<Borrower> getAllBorrowers() {
     	return restTemplate.getForObject("http://admin-service/admin/borrowers/", List.class);
     }
     
     @GetMapping("/borrower/{borrowerId}")
-    public Borrower getBorrower(@PathVariable("borrowerId") int borrowerId){
-    	return restTemplate.getForEntity(borrowerUrl+borrowerId, Borrower.class).getBody();
+    public ResponseEntity<Borrower> getBorrower(@PathVariable int borrowerId) throws NotFoundException {
+    	Borrower borrower = null;
+		try {
+			borrower = restTemplate.getForEntity(borrowerUrl+borrowerId, Borrower.class).getBody();
+			return new ResponseEntity<>(borrower, HttpStatus.OK);
+		}
+		catch(HttpClientErrorException ex) {
+			if (!ex.getStatusCode().equals(HttpStatus.NOT_FOUND)) {throw ex;}
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+		    throw new NotFoundException(map.get("message"));
+		}
     }
     
     @PostMapping("/borrower")
-    public Borrower postBorrower(@RequestBody Borrower borrower) {
-    	HttpEntity<Borrower> request = new HttpEntity<>(borrower);
-    	Borrower out = restTemplate.postForObject(borrowerUrl, request, Borrower.class);
-    	return out;
+    public ResponseEntity<Borrower> addBorrower(@RequestBody Borrower borrower) throws AlreadyExistsException {
+    	try {
+			restTemplate.postForEntity(borrowerUrl, borrower, Borrower.class);
+			return new ResponseEntity<>(HttpStatus.CREATED);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+		    throw new AlreadyExistsException(map.get("message"));
+		}
     }
     
     @PutMapping("/borrower/{borrowerId}")
-    public void putBorrower(@PathVariable("borrowerId") int borrowerId, @RequestBody Borrower borrower) {
-    	HttpEntity<Borrower> request = new HttpEntity<Borrower>(borrower);
-    	restTemplate.put(borrowerUrl+borrowerId, request);
+    public ResponseEntity<Borrower> updateBorrower(@PathVariable int borrowerId, @RequestBody Borrower borrower) throws NotFoundException {
+    	try {
+			restTemplate.put(borrowerUrl+borrowerId, borrower);
+			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+			throw new NotFoundException(map.get("message"));
+		}	
     }
     
     @DeleteMapping("/borrower/{borrowerId}")
-    public void deleteBorrower(@PathVariable("borrowerId") int borrowerId) {
-    	restTemplate.delete(borrowerUrl+borrowerId);
+    public ResponseEntity<Borrower> deleteBorrower(@PathVariable int borrowerId) throws NotFoundException {
+    	try {
+			restTemplate.delete(borrowerUrl+borrowerId);
+			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+			throw new NotFoundException(map.get("message"));
+		}
     }
     
     /******************************************
@@ -187,100 +336,219 @@ public class Orchestrator {
     
     String libraryBranchUrl = "http://admin-service/admin/libraryBranch/";
     
-    @SuppressWarnings("unchecked")
 	@GetMapping("/libraryBranches")
     public List<LibraryBranch> getAllLibraryBranches() {
     	return restTemplate.getForObject("http://admin-service/admin/libraryBranches/", List.class);
     }
     
     @GetMapping("/libraryBranch/{libraryBranchId}")
-    public LibraryBranch getLibraryBranch(@PathVariable("libraryBranchId") int libraryBranchId){	
-    	return restTemplate.getForEntity(libraryBranchUrl+libraryBranchId, LibraryBranch.class).getBody();
-    }
+    public ResponseEntity<LibraryBranch> getLibraryBranch(@PathVariable int libraryBranchId) throws NotFoundException {	
+    	LibraryBranch libBranch = null;
+		try {
+			libBranch = restTemplate.getForEntity(libraryBranchUrl+libraryBranchId, LibraryBranch.class).getBody();
+			return new ResponseEntity<>(libBranch, HttpStatus.OK);
+		}
+		catch(HttpClientErrorException ex) {
+			if (!ex.getStatusCode().equals(HttpStatus.NOT_FOUND)) {throw ex;}
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+		    throw new NotFoundException(map.get("message"));
+		}
+	}
     
     @PostMapping("/libraryBranch")
-    public LibraryBranch postLibraryBranch(@RequestBody LibraryBranch libraryBranch) {
-    	HttpEntity<LibraryBranch> request = new HttpEntity<>(libraryBranch);
-    	LibraryBranch out = restTemplate.postForObject(libraryBranchUrl, request, LibraryBranch.class);
-    	return out;
+    public ResponseEntity<LibraryBranch> addLibraryBranch(@RequestBody LibraryBranch libraryBranch) throws AlreadyExistsException {
+    	try {
+			restTemplate.postForEntity(libraryBranchUrl, libraryBranch, LibraryBranch.class);
+			return new ResponseEntity<>(HttpStatus.CREATED);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+		    throw new AlreadyExistsException(map.get("message"));
+		}	
     }
     
     @PutMapping("/libraryBranch/{libraryBranchId}")
-    public void putLibraryBranch(@PathVariable("libraryBranchId") int libraryBranchId, @RequestBody LibraryBranch libraryBranch) {
-    	HttpEntity<LibraryBranch> request = new HttpEntity<LibraryBranch>(libraryBranch);
-    	restTemplate.put(libraryBranchUrl+libraryBranchId, request);
+    public ResponseEntity<LibraryBranch> updateLibraryBranch(@PathVariable int libraryBranchId, @RequestBody LibraryBranch libraryBranch) throws NotFoundException {
+    	try {
+			restTemplate.put(libraryBranchUrl+libraryBranchId, libraryBranch);
+			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+			throw new NotFoundException(map.get("message"));
+		}
     }
     
     @DeleteMapping("/libraryBranch/{libraryBranchId}")
-    public void deleteLibraryBranch(@PathVariable("libraryBranchId") int libraryBranchId) {
-    	restTemplate.delete(libraryBranchUrl+libraryBranchId);
+    public ResponseEntity<LibraryBranch> deleteLibraryBranch(@PathVariable int libraryBranchId) throws NotFoundException {
+    	try {
+			restTemplate.delete(libraryBranchUrl+libraryBranchId);
+			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+			throw new NotFoundException(map.get("message"));
+		}
     }
     
     /******************************************
    	*Borrower Orch Methods
+     * @throws NotFoundException 
    	*******************************************/
     
     //returns all books borrowed by that borrower
-    @SuppressWarnings("unchecked")
     @GetMapping("/borrowers/{cardNo}")
-    public List<BkLoansBkAuthDTO> getBorroweredBooks(@PathVariable int cardNo){
-        return restTemplate.getForObject("http://borrower-service/borrower/cardNo/"+cardNo, List.class);
+    public ResponseEntity<List<BkLoansBkAuthDTO>> getBorroweredBooks(@PathVariable int cardNo) throws NotFoundException {
+    	List<BkLoansBkAuthDTO> list = null;
+		try {
+			list = restTemplate.getForObject("http://borrower-service/borrower/cardNo/"+cardNo, List.class);
+			return new ResponseEntity<>(list, HttpStatus.OK);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+		    throw new NotFoundException(map.get("message"));
+		}
     }
     
-    @SuppressWarnings("unchecked")
     @GetMapping("/borrowers/{cardNo}/libraries")
-    public List<BkLoansBranchDTO> getAllBranches(@PathVariable int cardNo){
-        return restTemplate.getForObject("http://borrower-service/borrower/cardNo/"+cardNo+"/libraries", List.class);
+    public ResponseEntity<List<BkLoansBranchDTO>> getAllBranches(@PathVariable int cardNo) throws NotFoundException {
+    	List<BkLoansBranchDTO> list = null;
+		try {
+			list = restTemplate.getForObject("http://borrower-service/borrower/cardNo/"+cardNo+"/libraries", List.class);
+			return new ResponseEntity<>(list, HttpStatus.OK);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+		    throw new NotFoundException(map.get("message"));
+		}
     }
     
-    @SuppressWarnings("unchecked")
     @GetMapping("/borrowers/{cardNo}/libraries/{branchId}/books")
-    public List<BkLoansBkAuthDTO> getAllLoans(@PathVariable int cardNo, @PathVariable int branchId){
-        return restTemplate.getForObject("http://borrower-service/borrower/cardNo/"+cardNo+"/libraries/"+branchId+"/books", List.class);
+    public ResponseEntity<List<BkLoansBkAuthDTO>> getAllLoans(@PathVariable int cardNo, @PathVariable int branchId) throws NotFoundException {
+    	List<BkLoansBkAuthDTO> list = null;
+		try {
+			list = restTemplate.getForObject("http://borrower-service/borrower/cardNo/"+cardNo+"/libraries/"+branchId+"/books", List.class);
+			return new ResponseEntity<>(list, HttpStatus.OK);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+		    throw new NotFoundException(map.get("message"));
+		}
     }
     
     @PostMapping("/borrowers/{cardNo}/checkout")
-    public void borrowBook(@PathVariable int cardNo, @RequestBody BookLoans loan){
-        BookLoans temp = new BookLoans();
-        temp.setCardNo(cardNo);
-        temp.setBookId(loan.getBookId());
-        temp.setBranchId(loan.getBranchId());
-        restTemplate.postForEntity("http://borrower-service/borrower/cardNo/"+cardNo+"/checkout", temp, BookLoans.class);
+    public ResponseEntity<BookLoans> borrowBook(@PathVariable int cardNo, @RequestBody BookLoans loan) 
+    throws NotFoundException, BadRequestException {
+    	try {
+    		BookLoans temp = new BookLoans();
+            temp.setCardNo(cardNo);
+            temp.setBookId(loan.getBookId());
+            temp.setBranchId(loan.getBranchId());
+            restTemplate.postForEntity("http://borrower-service/borrower/cardNo/"+cardNo+"/checkout", temp, BookLoans.class);
+            return new ResponseEntity<>(HttpStatus.CREATED);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+		    
+			if(map.get("message").contains("Login failed.")) {
+				throw new NotFoundException(map.get("message"));
+			}
+			else if(map.get("message").contains("Check out failed. The library")) {
+				throw new NotFoundException(map.get("message"));
+			}
+			else if(map.get("message").contains("Check out failed. The book")) {
+				throw new NotFoundException(map.get("message"));
+			}
+			//case: "Check out failed. That library does not have any copies available."
+			else {
+				throw new BadRequestException(map.get("message"));
+			}
+		}	
     }
     
     @DeleteMapping("/borrowers/{cardNo}/libraries/{branchId}/books/{bookId}")
-    public void returnBook(@PathVariable int cardNo, @PathVariable int branchId, @PathVariable int bookId){
-        restTemplate.delete("http://borrower-service/borrower/cardNo/"+cardNo+"/libraries/"+branchId+"/books/"+bookId);
+    public ResponseEntity<BookLoans> returnBook(@PathVariable int cardNo, @PathVariable int branchId, @PathVariable int bookId) 
+    throws NotFoundException, BadRequestException {
+    	try {
+            restTemplate.delete("http://borrower-service/borrower/cardNo/"+cardNo+"/libraries/"+branchId+"/books/"+bookId);
+            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+			
+			if(map.get("message").contains("Login failed.")) {
+				throw new NotFoundException(map.get("message"));
+			}
+			else if(map.get("message").contains("Return failed. The library")) {
+				throw new NotFoundException(map.get("message"));
+			}
+			else if(map.get("message").contains("Return failed. The book")) {
+				throw new NotFoundException(map.get("message"));
+			}
+			//case: "Return failed. You do not have that book checked out!"
+			else {
+				throw new BadRequestException(map.get("message"));
+			}
+		}    	
     }
     
     /******************************************
    	*Librarian Orch Methods
    	*******************************************/
     
-    @SuppressWarnings("unchecked")
 	@GetMapping("/libraries")
 	public List<LibraryBranch> getAllBranches() {
 		return restTemplate.getForObject("http://librarian-service/librarian/libraries", List.class);
 	}
     
     @GetMapping("/libraries/{branchId}")
-	public LibraryBranch getLibBranch(@PathVariable int branchId) {
-		return restTemplate.getForObject("http://librarian-service/librarian/libraries/"+branchId, LibraryBranch.class);
+	public ResponseEntity<LibraryBranch> getLibBranch(@PathVariable int branchId) throws NotFoundException {
+    	LibraryBranch libBranch = null;
+		try {
+			libBranch = restTemplate.getForObject("http://librarian-service/librarian/libraries/"+branchId, LibraryBranch.class);
+			return new ResponseEntity<>(libBranch, HttpStatus.OK);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+		    throw new NotFoundException(map.get("message"));
+		}
 	}
     
     @PutMapping("/libraries/{branchId}")
-	public void updateLibBranch(@PathVariable int branchId, @RequestBody LibraryBranch libBranch) {
-		restTemplate.put("http://librarian-service/librarian/libraries/"+branchId, libBranch);
+	public ResponseEntity<LibraryBranch> updateLibBranch(@PathVariable int branchId, @RequestBody LibraryBranch libBranch) throws NotFoundException {
+    	try {
+			restTemplate.put("http://librarian-service/librarian/libraries/"+branchId, libBranch);
+			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+			throw new NotFoundException(map.get("message"));
+		}
 	}
     
-    @SuppressWarnings("unchecked")
    	@GetMapping("/libraries/{id}/book_copies")
-   	public List<BkCopiesDTO> getBookCopies(@PathVariable int id) {
-   		return restTemplate.getForObject("http://librarian-service/librarian/libraries/"+id+"/book_copies", List.class);
+   	public ResponseEntity<List<BkCopiesDTO>> getBookCopies(@PathVariable int id) throws NotFoundException {
+   		List<BkCopiesDTO> list = null;
+		try {
+			list = restTemplate.getForObject("http://librarian-service/librarian/libraries/"+id+"/book_copies", List.class);
+			return new ResponseEntity<>(list, HttpStatus.OK);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+		    throw new NotFoundException(map.get("message"));
+		}
    	}
     
     @PutMapping("/libraries/{branchId}/book_copies/{bookId}")
-	public void updateBookCopies(@PathVariable int branchId, @PathVariable int bookId, @RequestBody BookCopies bkCopy) {
-		restTemplate.put("http://librarian-service/librarian/libraries/"+branchId+"/book_copies/"+bookId, bkCopy);
+	public ResponseEntity<BookCopies> updateBookCopies(@PathVariable int branchId, @PathVariable int bookId, @RequestBody BookCopies bkCopy) 
+	throws NotFoundException {
+     	try {
+			restTemplate.put("http://librarian-service/librarian/libraries/"+branchId+"/book_copies/"+bookId, bkCopy);
+			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+		}
+		catch(HttpClientErrorException ex) {
+			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
+			throw new NotFoundException(map.get("message"));
+		}
 	}
 }
