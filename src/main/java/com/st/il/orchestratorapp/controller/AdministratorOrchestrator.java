@@ -235,7 +235,6 @@ public class AdministratorOrchestrator {
 			return new ResponseEntity<>(author, HttpStatus.OK);
 		}
 		catch(HttpClientErrorException ex) {
-			if (!ex.getStatusCode().equals(HttpStatus.NOT_FOUND)) {throw ex;}
 			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
 		    throw new NotFoundException(map.get("message"));
 		}
@@ -296,7 +295,6 @@ public class AdministratorOrchestrator {
 			return new ResponseEntity<>(borrower, HttpStatus.OK);
 		}
 		catch(HttpClientErrorException ex) {
-			if (!ex.getStatusCode().equals(HttpStatus.NOT_FOUND)) {throw ex;}
 			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
 		    throw new NotFoundException(map.get("message"));
 		}
@@ -357,7 +355,6 @@ public class AdministratorOrchestrator {
 			return new ResponseEntity<>(libBranch, HttpStatus.OK);
 		}
 		catch(HttpClientErrorException ex) {
-			if (!ex.getStatusCode().equals(HttpStatus.NOT_FOUND)) {throw ex;}
 			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
 		    throw new NotFoundException(map.get("message"));
 		}
