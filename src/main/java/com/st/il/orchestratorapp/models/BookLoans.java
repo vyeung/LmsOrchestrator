@@ -1,4 +1,4 @@
-package com.st.orchestrator.models;
+package com.st.il.orchestratorapp.models;
 
 import java.sql.Date;
 

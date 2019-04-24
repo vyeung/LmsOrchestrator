@@ -1,8 +1,8 @@
-package com.st.orchestrator.dto;
+package com.st.il.orchestratorapp.dto;
 
-import com.st.orchestrator.models.Author;
-import com.st.orchestrator.models.Book;
-import com.st.orchestrator.models.BookCopies;
+import com.st.il.orchestratorapp.models.Author;
+import com.st.il.orchestratorapp.models.Book;
+import com.st.il.orchestratorapp.models.BookCopies;
 
 public class BkCopiesDTO {
 	

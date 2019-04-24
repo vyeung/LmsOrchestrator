@@ -1,8 +1,8 @@
-package com.st.orchestrator.dto;
+package com.st.il.orchestratorapp.dto;
 
-import com.st.orchestrator.models.Author;
-import com.st.orchestrator.models.Book;
-import com.st.orchestrator.models.BookLoans;
+import com.st.il.orchestratorapp.models.Author;
+import com.st.il.orchestratorapp.models.Book;
+import com.st.il.orchestratorapp.models.BookLoans;
 
 public class BkLoansBkAuthDTO {
 

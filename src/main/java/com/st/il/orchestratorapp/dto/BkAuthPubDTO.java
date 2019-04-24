@@ -1,4 +1,4 @@
-package com.st.orchestrator.dto;
+package com.st.il.orchestratorapp.dto;
 
 public class BkAuthPubDTO {
 

@@ -1,4 +1,4 @@
-package com.st.orchestrator.exception;
+package com.st.il.orchestratorapp.exception;
 
 public class ApiError {
 

@@ -1,9 +1,9 @@
-package com.st.orchestrator.dto;
+package com.st.il.orchestratorapp.dto;
 
 import java.util.List;
 
-import com.st.orchestrator.models.BookLoans;
-import com.st.orchestrator.models.LibraryBranch;
+import com.st.il.orchestratorapp.models.BookLoans;
+import com.st.il.orchestratorapp.models.LibraryBranch;
 
 public class BkLoansBranchDTO {
 	

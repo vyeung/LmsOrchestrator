@@ -1,4 +1,4 @@
-package com.st.orchestrator.controller;
+package com.st.il.orchestratorapp.controller;
 
 import java.util.HashMap;
 import java.util.List;
@@ -18,25 +18,33 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import com.google.gson.Gson;
-import com.st.orchestrator.dto.BkAuthPubDTO;
-import com.st.orchestrator.dto.BkCopiesDTO;
-import com.st.orchestrator.dto.BkLoansBkAuthDTO;
-import com.st.orchestrator.dto.BkLoansBranchDTO;
-import com.st.orchestrator.exception.AlreadyExistsException;
-import com.st.orchestrator.exception.BadRequestException;
-import com.st.orchestrator.exception.NotFoundException;
-import com.st.orchestrator.models.Author;
-import com.st.orchestrator.models.Book;
-import com.st.orchestrator.models.BookCopies;
-import com.st.orchestrator.models.BookLoans;
-import com.st.orchestrator.models.Borrower;
-import com.st.orchestrator.models.LibraryBranch;
-import com.st.orchestrator.models.Publisher;
+import com.st.il.orchestratorapp.dto.BkAuthPubDTO;
+import com.st.il.orchestratorapp.exception.AlreadyExistsException;
+import com.st.il.orchestratorapp.exception.BadRequestException;
+import com.st.il.orchestratorapp.exception.NotFoundException;
+import com.st.il.orchestratorapp.models.Author;
+import com.st.il.orchestratorapp.models.Book;
+import com.st.il.orchestratorapp.models.BookLoans;
+import com.st.il.orchestratorapp.models.Borrower;
+import com.st.il.orchestratorapp.models.LibraryBranch;
+import com.st.il.orchestratorapp.models.Publisher;
+
+
+
+
+/**
+ * Orchestrator Controller for Administrator Services.
+ * 
+ * @author Vien Yeung
+ * @author Tonny Huang
+ * @author Al-amine AHMED MOUSSA
+ */
+
 
 @RestController
-@RequestMapping("/orch")
+@RequestMapping("/orchs")
 @SuppressWarnings("unchecked")
-public class Orchestrator {
+public class AdministratorOrchestrator {
 
 	@Autowired
 	RestTemplate restTemplate;
@@ -390,165 +398,4 @@ public class Orchestrator {
 			throw new NotFoundException(map.get("message"));
 		}
     }
-    
-    /******************************************
-   	*Borrower Orch Methods
-     * @throws NotFoundException 
-   	*******************************************/
-    
-    //returns all books borrowed by that borrower
-    @GetMapping("/borrowers/{cardNo}")
-    public ResponseEntity<List<BkLoansBkAuthDTO>> getBorroweredBooks(@PathVariable int cardNo) throws NotFoundException {
-    	List<BkLoansBkAuthDTO> list = null;
-		try {
-			list = restTemplate.getForObject("http://borrower-service/borrower/cardNo/"+cardNo, List.class);
-			return new ResponseEntity<>(list, HttpStatus.OK);
-		}
-		catch(HttpClientErrorException ex) {
-			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
-		    throw new NotFoundException(map.get("message"));
-		}
-    }
-    
-    @GetMapping("/borrowers/{cardNo}/libraries")
-    public ResponseEntity<List<BkLoansBranchDTO>> getAllBranches(@PathVariable int cardNo) throws NotFoundException {
-    	List<BkLoansBranchDTO> list = null;
-		try {
-			list = restTemplate.getForObject("http://borrower-service/borrower/cardNo/"+cardNo+"/libraries", List.class);
-			return new ResponseEntity<>(list, HttpStatus.OK);
-		}
-		catch(HttpClientErrorException ex) {
-			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
-		    throw new NotFoundException(map.get("message"));
-		}
-    }
-    
-    @GetMapping("/borrowers/{cardNo}/libraries/{branchId}/books")
-    public ResponseEntity<List<BkLoansBkAuthDTO>> getAllLoans(@PathVariable int cardNo, @PathVariable int branchId) throws NotFoundException {
-    	List<BkLoansBkAuthDTO> list = null;
-		try {
-			list = restTemplate.getForObject("http://borrower-service/borrower/cardNo/"+cardNo+"/libraries/"+branchId+"/books", List.class);
-			return new ResponseEntity<>(list, HttpStatus.OK);
-		}
-		catch(HttpClientErrorException ex) {
-			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
-		    throw new NotFoundException(map.get("message"));
-		}
-    }
-    
-    @PostMapping("/borrowers/{cardNo}/checkout")
-    public ResponseEntity<BookLoans> borrowBook(@PathVariable int cardNo, @RequestBody BookLoans loan) 
-    throws NotFoundException, BadRequestException {
-    	try {
-    		BookLoans temp = new BookLoans();
-            temp.setCardNo(cardNo);
-            temp.setBookId(loan.getBookId());
-            temp.setBranchId(loan.getBranchId());
-            restTemplate.postForEntity("http://borrower-service/borrower/cardNo/"+cardNo+"/checkout", temp, BookLoans.class);
-            return new ResponseEntity<>(HttpStatus.CREATED);
-		}
-		catch(HttpClientErrorException ex) {
-			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
-		    
-			if(map.get("message").contains("Login failed.")) {
-				throw new NotFoundException(map.get("message"));
-			}
-			else if(map.get("message").contains("Check out failed. The library")) {
-				throw new NotFoundException(map.get("message"));
-			}
-			else if(map.get("message").contains("Check out failed. The book")) {
-				throw new NotFoundException(map.get("message"));
-			}
-			//case: "Check out failed. That library does not have any copies available."
-			else {
-				throw new BadRequestException(map.get("message"));
-			}
-		}	
-    }
-    
-    @DeleteMapping("/borrowers/{cardNo}/libraries/{branchId}/books/{bookId}")
-    public ResponseEntity<BookLoans> returnBook(@PathVariable int cardNo, @PathVariable int branchId, @PathVariable int bookId) 
-    throws NotFoundException, BadRequestException {
-    	try {
-            restTemplate.delete("http://borrower-service/borrower/cardNo/"+cardNo+"/libraries/"+branchId+"/books/"+bookId);
-            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-		}
-		catch(HttpClientErrorException ex) {
-			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
-			
-			if(map.get("message").contains("Login failed.")) {
-				throw new NotFoundException(map.get("message"));
-			}
-			else if(map.get("message").contains("Return failed. The library")) {
-				throw new NotFoundException(map.get("message"));
-			}
-			else if(map.get("message").contains("Return failed. The book")) {
-				throw new NotFoundException(map.get("message"));
-			}
-			//case: "Return failed. You do not have that book checked out!"
-			else {
-				throw new BadRequestException(map.get("message"));
-			}
-		}    	
-    }
-    
-    /******************************************
-   	*Librarian Orch Methods
-   	*******************************************/
-    
-	@GetMapping("/libraries")
-	public List<LibraryBranch> getAllBranches() {
-		return restTemplate.getForObject("http://librarian-service/librarian/libraries", List.class);
-	}
-    
-    @GetMapping("/libraries/{branchId}")
-	public ResponseEntity<LibraryBranch> getLibBranch(@PathVariable int branchId) throws NotFoundException {
-    	LibraryBranch libBranch = null;
-		try {
-			libBranch = restTemplate.getForObject("http://librarian-service/librarian/libraries/"+branchId, LibraryBranch.class);
-			return new ResponseEntity<>(libBranch, HttpStatus.OK);
-		}
-		catch(HttpClientErrorException ex) {
-			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
-		    throw new NotFoundException(map.get("message"));
-		}
-	}
-    
-    @PutMapping("/libraries/{branchId}")
-	public ResponseEntity<LibraryBranch> updateLibBranch(@PathVariable int branchId, @RequestBody LibraryBranch libBranch) throws NotFoundException {
-    	try {
-			restTemplate.put("http://librarian-service/librarian/libraries/"+branchId, libBranch);
-			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-		}
-		catch(HttpClientErrorException ex) {
-			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
-			throw new NotFoundException(map.get("message"));
-		}
-	}
-    
-   	@GetMapping("/libraries/{id}/book_copies")
-   	public ResponseEntity<List<BkCopiesDTO>> getBookCopies(@PathVariable int id) throws NotFoundException {
-   		List<BkCopiesDTO> list = null;
-		try {
-			list = restTemplate.getForObject("http://librarian-service/librarian/libraries/"+id+"/book_copies", List.class);
-			return new ResponseEntity<>(list, HttpStatus.OK);
-		}
-		catch(HttpClientErrorException ex) {
-			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
-		    throw new NotFoundException(map.get("message"));
-		}
-   	}
-    
-    @PutMapping("/libraries/{branchId}/book_copies/{bookId}")
-	public ResponseEntity<BookCopies> updateBookCopies(@PathVariable int branchId, @PathVariable int bookId, @RequestBody BookCopies bkCopy) 
-	throws NotFoundException {
-     	try {
-			restTemplate.put("http://librarian-service/librarian/libraries/"+branchId+"/book_copies/"+bookId, bkCopy);
-			return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-		}
-		catch(HttpClientErrorException ex) {
-			HashMap<String,String> map = new Gson().fromJson(ex.getResponseBodyAsString(), HashMap.class);
-			throw new NotFoundException(map.get("message"));
-		}
-	}
 }
