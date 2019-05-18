@@ -349,12 +349,12 @@ public class AdministratorOrchestrator {
     
     String libraryBranchUrl = "http://admin-service/admin/libraryBranch/";
     
-	@GetMapping("/libraryBranches")
+	@GetMapping("/branches")
     public List<LibraryBranch> getAllLibraryBranches() {
     	return restTemplate.getForObject("http://admin-service/admin/libraryBranches/", List.class);
     }
     
-    @GetMapping("/libraryBranch/{libraryBranchId}")
+    @GetMapping("/branch/{libraryBranchId}")
     public ResponseEntity<LibraryBranch> getLibraryBranch(@PathVariable int libraryBranchId) throws NotFoundException {	
     	LibraryBranch libBranch = null;
 		try {
@@ -367,7 +367,7 @@ public class AdministratorOrchestrator {
 		}
 	}
     
-    @PostMapping("/libraryBranch")
+    @PostMapping("/branch")
     public ResponseEntity<LibraryBranch> addLibraryBranch(@RequestBody LibraryBranch libraryBranch) throws AlreadyExistsException {
     	try {
 			restTemplate.postForEntity(libraryBranchUrl, libraryBranch, LibraryBranch.class);
@@ -379,7 +379,7 @@ public class AdministratorOrchestrator {
 		}	
     }
     
-    @PutMapping("/libraryBranch/{libraryBranchId}")
+    @PutMapping("/branch/{libraryBranchId}")
     public ResponseEntity<LibraryBranch> updateLibraryBranch(@PathVariable int libraryBranchId, @RequestBody LibraryBranch libraryBranch) throws NotFoundException {
     	try {
 			restTemplate.put(libraryBranchUrl+libraryBranchId, libraryBranch);
@@ -391,7 +391,7 @@ public class AdministratorOrchestrator {
 		}
     }
     
-    @DeleteMapping("/libraryBranch/{libraryBranchId}")
+    @DeleteMapping("/branch/{libraryBranchId}")
     public ResponseEntity<LibraryBranch> deleteLibraryBranch(@PathVariable int libraryBranchId) throws NotFoundException {
     	try {
 			restTemplate.delete(libraryBranchUrl+libraryBranchId);
